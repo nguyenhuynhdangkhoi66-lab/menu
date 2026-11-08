@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FF PANEL PRO - Tech HUD</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: 'Segoe UI', monospace;
+    background: #050505;
+    color: #e8e8e8;
+    min-height: 100vh;
+    background-image:
+      linear-gradient(rgba(0,255,120,.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,140,255,.04) 1px, transparent 1px);
+    background-size: 30px 30px;
+    overflow-x: hidden;
+  }
+  header {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:14px 20px;
+    background: linear-gradient(90deg,#000,#0a1a12,#001428);
+    border-bottom:2px solid #00ff88;
+    box-shadow:0 0 20px rgba(0,255,136,.3);
+  }
+  .logo { font-size:20px; font-weight:bold; letter-spacing:2px; }
+  .logo span { color:#00ff88; text-shadow:0 0 10px #00ff88; }
+  .logo b { color:#0af; text-shadow:0 0 10px #0af; }
+  #clock { font-family:monospace; color:#0af; font-size:14px; }
+  #timerBox { font-family:monospace; color:#00ff88; font-size:14px; }
+
+  /* Floating button */
+  #fab {
+    position:fixed; right:20px; bottom:20px;
+    width:64px; height:64px; border-radius:50%;
+    background: radial-gradient(circle,#00ff88,#008855);
+    color:#000; font-weight:bold; font-size:11px;
+    border:2px solid #0af; cursor:pointer; z-index:9999;
+    box-shadow:0 0 25px #00ff88;
+    display:flex; align-items:center; justify-content:center; text-align:center;
+    animation: pulse 1.6s infinite;
+  }
+  @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.08)} }
+
+  /* Main panel */
+  #panel {
+    position:fixed; top:0; right:0; width:360px; max-width:92vw; height:100vh;
+    background:#080808ee; backdrop-filter:blur(8px);
+    border-left:2px solid #00ff88;
+    transform:translateX(100%); transition:.35s; z-index:9998;
+    overflow-y:auto; padding:16px;
+    box-shadow:-10px 0 40px rgba(0,255,136,.25);
+  }
+  #panel.open { transform:translateX(0); }
+  .panel-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+  .panel-head h2 { font-size:15px; color:#00ff88; letter-spacing:1px; }
+  #closeBtn { background:#200; color:#ff5555; border:1px solid #ff5555; padding:4px 10px; border-radius:6px; cursor:pointer; }
+
+  .section {
+    border:1px solid #123; border-radius:10px; padding:10px; margin-bottom:12px;
+    background:linear-gradient(180deg,#000,#061018);
+  }
+  .section h3 {
+    font-size:12px; color:#0af; letter-spacing:1.5px; margin-bottom:8px;
+    text-transform:uppercase; border-left:3px solid #00ff88; padding-left:8px;
+  }
+
+  /* Toggle switch */
+  .row { display:flex; justify-content:space-between; align-items:center; padding:6px 0; font-size:13px; }
+  .switch { position:relative; width:46px; height:22px; }
+  .switch input { opacity:0; width:0; height:0; }
+  .slider {
+    position:absolute; inset:0; background:#222; border-radius:22px; cursor:pointer; transition:.25s;
+    border:1px solid #444;
+  }
+  .slider:before {
+    content:""; position:absolute; width:16px; height:16px; left:2px; top:2px;
+    background:#777; border-radius:50%; transition:.25s;
+  }
+  .switch input:checked + .slider { background:#00ff88; box-shadow:0 0 12px #00ff88; }
+  .switch input:checked + .slider:before { transform:translateX(24px); background:#000; }
+
+  /* Select / range */
+  select, input[type=range] { width:100%; background:#0a0a0a; color:#0af; border:1px solid #123; border-radius:6px; padding:5px; font-size:12px; }
+  input[type=range] { -webkit-appearance:none; height:6px; background:#122; margin:6px 0; }
+  input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; border-radius:50%; background:#00ff88; box-shadow:0 0 10px #00ff88; cursor:pointer; }
+  .val { color:#00ff88; font-size:11px; float:right; }
+
+  .fps-btns { display:flex; gap:6px; margin-top:6px; }
+  .fps-btns button {
+    flex:1; background:#011; color:#0af; border:1px solid #0af; border-radius:6px;
+    padding:6px; cursor:pointer; font-size:12px;
+  }
+  .fps-btns button.active { background:#0af; color:#000; font-weight:bold; }
+
+  .hint { font-size:10px; color:#666; margin-top:4px; }
+
+  /* Account card */
+  #accCard { font-size:12px; line-height:1.7; }
+  #accCard .k { color:#0af; }
+  #accCard .v { color:#00ff88; word-break:break-all; }
+  .pwd { display:flex; gap:6px; align-items:center; }
+  .pwd button { background:#111; color:#0af; border:1px solid #0af; border-radius:4px; padding:1px 6px; font-size:10px; cursor:pointer; }
+
+  /* Trigger area */
+  #triggerArea {
+    position:fixed; top:60px; left:20px; width:200px; height:70px;
+    border:1px dashed #00ff8844; border-radius:10px; color:#0af; font-size:11px;
+    display:flex; align-items:center; justify-content:center; text-align:center; z-index:5;
+    background:#00000055;
+  }
+
+  .big-aim {
+    width:100%; padding:12px; border-radius:10px; border:1px solid #00ff88;
+    background:linear-gradient(90deg,#002a1a,#001428); color:#00ff88;
+    font-weight:bold; letter-spacing:1px; cursor:pointer; font-size:13px;
+    box-shadow:0 0 14px #00ff8844;
+  }
+  .big-aim:hover { background:#00ff88; color:#000; }
+
+  .status-dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:#444; margin-right:6px; }
+  .status-dot.on { background:#00ff88; box-shadow:0 0 8px #00ff88; }
+  .status-dot.proxy { background:#0af; box-shadow:0 0 8px #0af; }
+
+  footer { text-align:center; padding:20px; font-size:11px; color:#555; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><span>FF</span> <b>PANEL</b> PRO</div>
+  <div id="clock"></div>
+  <div id="timerBox">⏱ <span id="timer">00:00:00</span></div>
+</header>
+
+<div id="triggerArea">Bấm 4 lần vào đây để mở menu</div>
+
+<!-- FAB button - luôn hiện -->
+<button id="fab">MENU<br>FF</button>
+
+<!-- Panel -->
+<div id="panel">
+  <div class="panel-head">
+    <h2>⚙ CẤU HÌNH CAN THIỆP</h2>
+    <button id="closeBtn">✕</button>
+  </div>
+
+  <div class="section">
+    <h3><span class="status-dot" id="dotProxy"></span>Proxy / Diệt ID</h3>
+    <div class="row"><span>Bật Proxy can thiệp game</span>
+      <label class="switch"><input type="checkbox" id="proxySw"><span class="slider"></span></label>
+    </div>
+    <div class="row"><span>Diệt ID Free Fire</span>
+      <label class="switch"><input type="checkbox" id="diIdSw"><span class="slider"></span></label>
+    </div>
+    <div class="hint">Tạo file: proxypin, proxy, app happ</div>
+    <button class="big-aim" id="genProxy" style="margin-top:8px">⬇ TẠO FILE PROXY / PIN / HAPP</button>
+  </div>
+
+  <div class="section">
+    <h3>🎯 AIM HỆ THỐNG</h3>
+    <div class="row"><span>Aimbot</span><label class="switch"><input type="checkbox" id="aimbot"></label></div>
+    <div class="row"><span>Aimlock</span><label class="switch"><input type="checkbox" id="aimlock"></label></div>
+    <div class="row"><span>Aim cổ</span><label class="switch"><input type="checkbox" id="aimco"></label></div>
+    <div class="row"><span>Aim body</span><label class="switch"><input type="checkbox" id="aimbody"></label></div>
+    <div class="row"><span>Aim thường</span><label class="switch"><input type="checkbox" id="aimthuong"></label></div>
+    <div class="row"><span>Bỏ rung tâm / nhẹ tâm</span><label class="switch"><input type="checkbox" id="rung"></label></div>
+
+    <div style="margin-top:8px">Ghim đầu <span class="val" id="vHead">50%</span>
+      <input type="range" id="rHead" min="1" max="100" value="50"></div>
+    <div>Kéo tâm <span class="val" id="vPull">50%</span>
+      <input type="range" id="rPull" min="1" max="100" value="50"></div>
+    <div>Body (chân tay→đầu) <span class="val" id="vBody">50%</span>
+      <input type="range" id="rBody" min="1" max="100" value="50"></div>
+  </div>
+
+  <div class="section">
+    <h3>🔫 SÚNG</h3>
+    <div class="row"><span>Bỏ rung súng</span><label class="switch"><input type="checkbox" id="gunRecoil"></label></div>
+    <div class="row"><span>Nhẹ tâm súng</span><label class="switch"><input type="checkbox" id="gunLight"></label></div>
+  </div>
+
+  <div class="section">
+    <h3>👁 ESP</h3>
+    <div class="row"><span>Hiện máu</span><label class="switch"><input type="checkbox" id="espHp"></label></div>
+    <div class="row"><span>Hiện tên</span><label class="switch"><input type="checkbox" id="espName"></label></div>
+    <div class="row"><span>Hiện số người chơi</span><label class="switch"><input type="checkbox" id="espCount"></label></div>
+  </div>
+
+  <div class="section">
+    <h3>🛡 ANTIBAN & FPS</h3>
+    <div class="row"><span>Antiban</span><label class="switch"><input type="checkbox" id="anti"></label></div>
+    <div class="fps-btns">
+      <button data-fps="120">120</button>
+      <button data-fps="144">144</button>
+      <button data-fps="166">166</button>
+    </div>
+  </div>
+
+  <div class="section">
+    <h3>👤 TÀI KHOẢN</h3>
+    <div id="accCard">
+      <div><span class="k">Tên:</span> <span class="v" id="accName">--</span></div>
+      <div><span class="k">Lv:</span> <span class="v" id="accLv">--</span></div>
+      <div><span class="k">Email:</span> <span class="v" id="accMail">--</span></div>
+      <div class="pwd"><span class="k">Mật khẩu:</span> <span class="v" id="accPwd">••••••</span>
+        <button id="showPwd">👁</button></div>
+      <div><span class="k">Chơi thời gian:</span> <span class="v" id="playTime">--</span></div>
+    </div>
+  </div>
+</div>
+
+<footer>FF PANEL PRO · Tech HUD Demo · Trắng/Đen · Xanh lá · Xanh dương</footer>
+
+<script>
+/* ================= CLOCK ================= */
+function tick(){
+  const d = new Date();
+  document.getElementById('clock').textContent =
+    d.toLocaleDateString('vi-VN') + ' ' + d.toLocaleTimeString('vi-VN');
+}
+setInterval(tick, 1000); tick();
+
+/* ================= 3-HOUR TIMER ================= */
+let remain = 3*3600;
+let timerOn = false;
+function fmt(s){
+  const h=String(Math.floor(s/3600)).padStart(2,'0');
+  const m=String(Math.floor(s%3600/60)).padStart(2,'0');
+  const ss=String(s%60).padStart(2,'0');
+  return `${h}:${m}:${ss}`;
+}
+setInterval(()=>{
+  if(!timerOn) return;
+  remain--;
+  document.getElementById('timer').textContent = fmt(remain);
+  if(remain<=0){ timerOn=false; endSession(); }
+},1000);
+
+function endSession(){
+  document.getElementById('panel').classList.remove('open');
+  document.getElementById('timer').textContent = '00:00:00';
+  alert('⏰ Hết 3 giờ — Tắt can thiệp game!');
+  document.querySelectorAll('input[type=checkbox]').forEach(c=>c.checked=false);
+}
+
+/* ================= FAB + PANEL ================= */
+const panel = document.getElementById('panel');
+const fab = document.getElementById('fab');
+fab.addEventListener('click', ()=>{ panel.classList.toggle('open'); });
+document.getElementById('closeBtn').onclick = ()=> panel.classList.remove('open');
+
+/* ================= 4-TAP TRIGGER ================= */
+let taps = 0, tapTimer;
+document.getElementById('triggerArea').addEventListener('click', ()=>{
+  taps++;
+  tapTimer && clearTimeout(tapTimer);
+  tapTimer = setTimeout(()=>taps=0, 900);
+  if(taps>=4){ taps=0; panel.classList.add('open'); }
+});
+
+/* ================= RANGE VALUES ================= */
+[['rHead','vHead'],['rPull','vPull'],['rBody','vBody']].forEach(([r,v])=>{
+  const el=document.getElementById(r);
+  el.addEventListener('input', ()=> document.getElementById(v).textContent = el.value+'%');
+});
+
+/* ================= FPS ================= */
+document.querySelectorAll('.fps-btns button').forEach(b=>{
+  b.onclick = ()=>{
+    document.querySelectorAll('.fps-btns button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    log('FPS set '+b.dataset.fps);
+  };
+});
+
+/* ================= PROXY GENERATOR ================= */
+function download(name, content){
+  const blob = new Blob([content], {type:'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+document.getElementById('genProxy').onclick = ()=>{
+  // proxypin
+  download('proxypin.txt',
+`# proxypin.txt — FF PANEL PRO
+mode=proxy
+host=ff-garena.vn
+intercept=true
+antibban=on
